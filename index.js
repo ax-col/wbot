@@ -1,5 +1,4 @@
-// index.js (versión Baileys compatible con Termux) const { default: makeWASocket, useSingleFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys'); const { Boom } = require('@hapi/boom'); const P = require('pino'); const fs = require('fs'); const commands = require('./commands');
-
+// index.js 
 const OWNER_NUMBER = '573219724961'; const { state, saveState } = useSingleFileAuthState('./auth.json');
 
 async function startBot() { const sock = makeWASocket({ logger: P({ level: 'silent' }), printQRInTerminal: true, auth: state, });
