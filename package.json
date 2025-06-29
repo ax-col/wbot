@@ -1,12 +1,13 @@
 {
-  "name": "minimal-whatsapp-bot",
+  "name": "baileys-whatsapp-bot",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "qrcode-terminal": "^0.12.0",
-    "whatsapp-web.js": "^1.24.0"
+    "@whiskeysockets/baileys": "^6.7.0",
+    "pino": "^8.0.0",
+    "@hapi/boom": "^11.1.4"
   }
 }
