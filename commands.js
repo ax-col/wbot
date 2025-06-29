@@ -1,25 +1,38 @@
-// commands.js const os = require('os');
+const os = require('os');
 
-module.exports = { ping: async () => 'pong!',
+module.exports = {
+  ping: async () => 'pong!',
+  hora: async () => new Date().toLocaleString(),
+  info: async () => {
+    return `🖥️ Sistema: ${os.type()} ${os.release()}
+🧠 RAM libre: ${(os.freemem() / 1024 / 1024).toFixed(2)} MB
+🕒 Uptime: ${(os.uptime() / 60).toFixed(1)} min`;
+  },
+  cmd: async (input) => {
+    const { exec } = require('child_process');
+    return new Promise((resolve) => {
+      exec(input, (err, stdout, stderr) => {
+        if (err) return resolve(`❌ Error: ${stderr}`);
+        resolve(`🧾 Resultado:\n${stdout || 'Comando sin salida'}`);
+      });
+    });
+  },
+  kick: async (input, msg, sock) => {
+    const jid = msg.key.remoteJid;
+    if (!jid.endsWith('@g.us')) return '❌ Este comando solo funciona en grupos.';
 
-hora: async () => new Date().toLocaleString(),
+    const metadata = await sock.groupMetadata(jid);
+    const botIsAdmin = metadata.participants.find(p => p.id === sock.user.id && p.admin !== null);
+    if (!botIsAdmin) return '⚠️ El bot no es administrador.';
 
-info: async () => { return 🖥️ Sistema operativo: ${os.type()} ${os.release()} 🧠 RAM libre: ${(os.freemem() / 1024 / 1024).toFixed(2)} MB 🕒 Tiempo activo: ${(os.uptime() / 60).toFixed(2)} minutos; },
+    const number = input.replace(/[^0-9]/g, '');
+    const target = `${number}@s.whatsapp.net`;
 
-cmd: async (input) => { const { exec } = require('child_process'); return new Promise((resolve) => { exec(input, (err, stdout, stderr) => { if (err) return resolve(❌ Error: ${stderr}); resolve(🧾 Resultado:\n${stdout || 'Comando sin salida'}); }); }); },
-
-kick: async (input, msg, client) => { const chat = await msg.getChat(); if (!chat.isGroup) return '❌ Este comando solo funciona en grupos.';
-
-const botParticipant = chat.participants.find(p => p.id._serialized === client.info.wid._serialized);
-if (!botParticipant?.isAdmin) return '⚠️ El bot no es administrador en este grupo.';
-
-const targetNumber = input.replace(/[^0-9]/g, '') + '@c.us';
-try {
-  await chat.removeParticipants([targetNumber]);
-  return `✅ Usuario ${input} fue expulsado.`;
-} catch {
-  return '❌ No se pudo expulsar (verifica si el número está en el grupo y si eres admin).';
-}
-
-} };
-
+    try {
+      await sock.groupParticipantsUpdate(jid, [target], 'remove');
+      return `✅ Usuario ${number} expulsado.`;
+    } catch {
+      return '❌ No se pudo expulsar (verifica que esté en el grupo y que seas admin).';
+    }
+  }
+};
