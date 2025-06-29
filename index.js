@@ -1,45 +1,33 @@
-// index.js
-const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
-const commands = require('./commands');
+// index.js (versión Baileys compatible con Termux) const { default: makeWASocket, useSingleFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys'); const { Boom } = require('@hapi/boom'); const P = require('pino'); const fs = require('fs'); const commands = require('./commands');
 
-const OWNER_NUMBER = '573219724961';
+const OWNER_NUMBER = '573219724961'; const { state, saveState } = useSingleFileAuthState('./auth.json');
 
-const client = new Client({
-  authStrategy: new LocalAuth(),
-  puppeteer: {
-    headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"]
+async function startBot() { const sock = makeWASocket({ logger: P({ level: 'silent' }), printQRInTerminal: true, auth: state, });
+
+sock.ev.on('creds.update', saveState);
+
+sock.ev.on('connection.update', ({ connection, lastDisconnect }) => { if (connection === 'close') { const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut; console.log('⛔ Conexión cerrada. Reconectando...', shouldReconnect); if (shouldReconnect) startBot(); } else if (connection === 'open') { console.log('✅ Bot conectado'); sock.sendMessage(${OWNER_NUMBER}@s.whatsapp.net, { text: '🤖 Bot iniciado correctamente.' }); } });
+
+sock.ev.on('messages.upsert', async ({ messages, type }) => { if (type !== 'notify') return; const msg = messages[0]; if (!msg.message || !msg.key.remoteJid) return;
+
+const sender = msg.key.remoteJid;
+if (!sender.includes(OWNER_NUMBER)) return; // solo el owner puede usarlo
+
+const body = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
+if (!body.startsWith('/')) return;
+
+const [command, ...args] = body.trim().slice(1).split(/\s+/);
+if (commands[command]) {
+  try {
+    const response = await commands[command](args.join(' '), msg, sock);
+    await sock.sendMessage(sender, { text: response }, { quoted: msg });
+  } catch (err) {
+    console.error(err);
+    await sock.sendMessage(sender, { text: '⚠️ Error al ejecutar el comando.' }, { quoted: msg });
   }
-});
+}
 
-client.on('qr', qr => {
-  qrcode.generate(qr, { small: true });
-});
+}); }
 
-client.on('ready', () => {
-  console.log('✅ Bot conectado');
-  client.sendMessage(`${OWNER_NUMBER}@c.us`, '🤖 Bot iniciado correctamente.');
-});
+startBot();
 
-client.on('message', async msg => {
-  if (msg.from !== `${OWNER_NUMBER}@c.us`) return; // solo el owner puede usarlo
-  if (!msg.body.startsWith('/')) return;
-
-  const [command, ...args] = msg.body.trim().slice(1).split(/\s+/);
-  if (commands[command]) {
-    try {
-      const response = await commands[command](args.join(' '), msg, client);
-      msg.reply(response);
-    } catch (err) {
-      console.error(err);
-      msg.reply('⚠️ Error al ejecutar el comando.');
-    }
-  }
-});
-
-client.on('disconnected', (reason) => {
-  console.log('❌ Bot desconectado:', reason);
-});
-
-client.initialize();
